@@ -2,8 +2,10 @@
 
 import argparse
 import sys
+import csv
 from data_collector import __version__, collector
 from data_collector.config import Config
+from data_collector.normalize import normalize
 from datetime import datetime
 
 
@@ -33,10 +35,23 @@ def main():
     )
     args = parser.parse_args()
     from_date, to = parse_timerange(args.from_date, args.to)
+    normalized_rows = []
     if args.command == "collect":
         config = Config(args.config)
-        collector_instance = collector.Collector(args.es_server, args.es_index, config.parse())
-        collector_instance.collect(from_date, to)
+        input_config = config.parse()
+        collector_instance = collector.Collector(args.es_server, args.es_index, input_config)
+        data = collector_instance.collect(from_date, to)
+        for each_run in data:
+            for _, run_json in each_run.items():
+                normalized_json = normalize(run_json, ",".join(input_config["exclude_normalization"]))
+                normalized_rows.append(normalized_json)
+    # Write to CSV
+    if normalized_rows:
+        fieldnames = sorted(set().union(*normalized_rows))
+        with open(input_config["output_file"], "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(normalized_rows)
     return 0
 
 
@@ -54,4 +69,4 @@ def parse_timerange(from_date_dt: datetime, to_dt: datetime):
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(main())
