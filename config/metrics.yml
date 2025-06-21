@@ -140,6 +140,7 @@ metrics:
 - cgroupMemoryRSS-Infra
 - cgroupCPUSeconds-namespaces
 - cgroupMemoryRSS-namespaces
+benchmark: cluster-density-v2
 exclude_normalization:
 - LatencyMeasurement
 - jobSummary
@@ -147,4 +148,4 @@ exclude_normalization:
 - nodeStatus
 - alert
 - -start
-output_file: output.csv
+output_prefix: output
