@@ -103,3 +103,7 @@ ENV/
 
 # IDE settings
 .vscode/
+
+# Output artifacts
+*.csv
+*.json
