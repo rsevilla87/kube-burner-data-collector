@@ -1,13 +1,31 @@
 import re
-import json
+from datetime import datetime
 from typing import Dict, List, Any
 
 
+def split_list_into_chunks(lst, chunk_size):
+    """Splits a list into given chunk sizes"""
+    for idx in range(0, len(lst), chunk_size):
+        yield lst[idx:idx + chunk_size]
+
 def strhash(value: Any) -> str:
-    """Recursively generate a stable string hash from a nested dict or value."""
+    """Recursively generate a stable string hash from a nested dict or value"""
     if isinstance(value, dict):
         return ''.join(f"{key}:{strhash(value[key])}" for key in sorted(value))
     return str(value)
+
+def parse_timerange(from_date_dt: datetime, to_dt: datetime):
+    """pareses dates and returns UTC formats"""
+    try:
+        from_date = datetime.utcfromtimestamp(from_date_dt)
+        to = datetime.utcfromtimestamp(to_dt)
+    except ValueError:
+        print("Invalid date format")
+        exit(1)
+    if from_date >= to:
+        print("Start date must be before end date")
+        exit(1)
+    return from_date, to
 
 def compile_exclude_patterns(patterns_str: str) -> List[re.Pattern]:
     """Compiles the patterns to be excluded"""
@@ -26,15 +44,6 @@ def remove_keys_by_patterns(data: Dict, patterns: List[str]) -> Dict:
         k: v for k, v in data.items()
         if not any(r.match(k) for r in regexes)
     }
-
-def load_json_file(filepath: str) -> dict:
-    """Load a json file"""
-    try:
-        with open(filepath, "r") as file:
-            return json.load(file)
-    except json.JSONDecodeError:
-        print(f"Warning: Failed to decode JSON from file: {filepath}")
-        return None
 
 def recursively_flatten_values(obj: dict) -> dict:
     """Recursively flatten the json structure"""
@@ -57,6 +66,7 @@ def recursively_flatten_values(obj: dict) -> dict:
         return obj
 
 def flatten_json(flattened, obj, parent_key=""):
+    """Flatten a json structure"""
     if isinstance(obj, dict):
         for k, v in obj.items():
             new_key = f"{parent_key}_{k}" if parent_key else k

@@ -1,13 +1,8 @@
-import os
-import json
-import glob
 import re
-import csv
 from typing import Dict, List
 from data_collector.utils import (
     strhash,
     should_exclude,
-    load_json_file,
     compile_exclude_patterns,
     recursively_flatten_values,
     remove_keys_by_patterns,
@@ -133,6 +128,7 @@ def normalize_metrics(metrics: dict) -> dict:
     return nested_metrics
 
 def get_cluster_health(alerts: list, passed: bool) -> str:
+    """Calculates and returns cluster health"""
     has_error, has_warning = False, False
     for alert in alerts:
         if alert["severity"].lower() == 'warning':
@@ -157,7 +153,6 @@ def normalize(metrics_data: dict, exclude_metrics: str):
     nested_metrics = normalize_metrics(merged_output["metrics"].items())
 
     final_output = recursively_flatten_values(nested_metrics)
-    print(f"Total metrics collected: {len(merged_output['metrics'])}")
 
     flattened = {}
     flatten_json(flattened, final_output)

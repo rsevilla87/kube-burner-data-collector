@@ -1,23 +1,34 @@
+import logging
+import time
 from opensearchpy import OpenSearch
 from opensearch_dsl import Search, Q
 from datetime import datetime
 
+logger = logging.getLogger(__name__)
 
 class Collector:
     def __init__(self, es_server: str, es_index: str, config: dict):
+        """Init method for instance variables"""
         self.config = config
         self.es_index = es_index
         self.os_client = OpenSearch(es_server, verify_certs=False, http_compress=True, timeout=30)
 
     def collect(self, from_date: datetime, to: datetime):
+        """Collects data from the elastic search"""
+        start_time = time.time()
         data = []
         from_timestamp = from_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         to_timestamp = to.strftime("%Y-%m-%dT%H:%M:%SZ")
+        logger.info(f"Elasticsearch index: {self.es_index}, benchmark: {self.config['benchmark']}")
         query = Q(
             "bool",
             must_not=[Q("term", **{"jobConfig.name.keyword": "garbage-collection"})],
-            must=[Q("range", **{"timestamp": {"gte": from_timestamp, "lte": to_timestamp}})],
+            must=[
+                    Q("term", **{"jobConfig.name.keyword": self.config["benchmark"]}),
+                    Q("range", **{"timestamp": {"gte": from_timestamp, "lte": to_timestamp}}),
+                ],
         )
+        logger.debug(f"Constructed Elasticsearch query: {query.to_dict()}")
         s = (
             Search(using=self.os_client, index=self.es_index)
             .filter("term", **{"metricName.keyword": "jobSummary"})
@@ -29,7 +40,12 @@ class Collector:
             run_data = {}
             jobSummary = hit.to_dict()
             uuid = jobSummary.get("uuid")
+            if not uuid:
+                logger.warning("Missing UUID in jobSummary, skipping entry.")
+                continue
+            logging.debug(f"Processing UUID: {uuid}")
             if uuid not in run_data:
+                logger.debug("UUID not present in run data, adding it")                
                 run_data[uuid] = {"metadata": {}, "metrics": {}}            
             for field in self.config["metadata"]:
                 if field in jobSummary:
@@ -40,17 +56,22 @@ class Collector:
             if count_verified:
                 run_data[uuid]["metrics"] = metrics
             else:
+                logger.debug(f"No verified metrics for UUID {uuid}, skipping.")
                 continue
             data.append(run_data)
         
+        elapsed = time.time() - start_time
+        logger.info(f"Data collection completed in {elapsed:.2f} seconds.")
         return data
 
     def _metrics_by_uuid(self, uuid: str):
+        """Collects the list of metrics for an uuid"""
         metrics = {}
         input_list = self.config.get("metrics", {})
         metric_filter = [Q("term", **{"metricName.keyword": metric}) for metric in input_list]
         should_query = Q("bool", should=metric_filter)
         query = Q("bool", must_not=[Q("term", **{"jobConfig.name.keyword": "garbage-collection"})], should=should_query)
+        logger.debug(f"Constructed Elasticsearch query: {query.to_dict()}")
         s = Search(using=self.os_client, index=self.es_index).filter("term", **{"uuid.keyword": uuid}).query(query)
         for hit in s.scan():
             datapoint = hit.to_dict()
