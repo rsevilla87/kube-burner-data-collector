@@ -34,7 +34,7 @@ setup(
     description="Python Boilerplate contains all the boilerplate you need to create a Python package.",
     entry_points={
         "console_scripts": [
-            "data_collector=data_collector.cli:main",
+            "data_collector=main:main",
         ],
     },
     install_requires=requirements,
