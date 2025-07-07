@@ -1,7 +1,9 @@
 import re
+import logging
 from datetime import datetime
 from typing import Dict, List, Any
 
+logger = logging.getLogger(__name__)
 
 def split_list_into_chunks(lst, chunk_size):
     """Splits a list into given chunk sizes"""
@@ -20,10 +22,10 @@ def parse_timerange(from_date_dt: datetime, to_dt: datetime):
         from_date = datetime.utcfromtimestamp(from_date_dt)
         to = datetime.utcfromtimestamp(to_dt)
     except ValueError:
-        print("Invalid date format")
+        logger.info("Invalid date format")
         exit(1)
     if from_date >= to:
-        print("Start date must be before end date")
+        logger.info("Start date must be before end date")
         exit(1)
     return from_date, to
 

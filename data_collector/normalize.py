@@ -1,4 +1,5 @@
 import re
+import logging
 from typing import Dict, List
 from data_collector.utils import (
     strhash,
@@ -9,18 +10,12 @@ from data_collector.utils import (
     flatten_json,
 )
 
+logger = logging.getLogger(__name__)
 
 DROP_LIST = ['metadata','uuid','metricName','labels','query', 'value', 'jobName', 'timestamp']
 LABELS_LIST = ["mode", "verb", "namespace", "resource", "container", "component", "endpoint"]
 DEFAULT_HASH = "xyz"
 
-def extract_job_config(job_summaries: dict):
-    """Extracts job summary"""
-    for summary in job_summaries:
-        if summary.get("jobConfig", {}).get("name") != "garbage-collection":
-            job_config = summary.pop("jobConfig", None)
-            return job_config, summary
-    return None, None
 
 def process_json(metric: str, entries: dict, skip_patterns: List[re.Pattern], output: Dict) -> None:
     """Processes JSON and generates a huge json with minimal data"""
@@ -29,7 +24,7 @@ def process_json(metric: str, entries: dict, skip_patterns: List[re.Pattern], ou
 
     metric_name = entries[0].get("metricName")
     if not metric_name:
-        print(f"Warning: 'metricName' missing in first entry of the metric: {metric}")
+        logger.info(f"Warning: 'metricName' missing in first entry of the metric: {metric}")
         return
 
     if should_exclude(metric_name, skip_patterns):
