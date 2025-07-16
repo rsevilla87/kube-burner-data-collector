@@ -4,12 +4,6 @@
 
 from setuptools import setup, find_packages
 
-with open("README.rst") as readme_file:
-    readme = readme_file.read()
-
-with open("HISTORY.rst") as history_file:
-    history = history_file.read()
-
 requirements = []
 
 setup_requirements = []
@@ -39,10 +33,10 @@ setup(
     },
     install_requires=requirements,
     license="Apache Software License 2.0",
-    long_description=readme + "\n\n" + history,
     include_package_data=True,
     keywords="data_collector",
     name="data_collector",
+    py_modules=["main"],
     packages=find_packages(include=["data_collector", "data_collector.*"]),
     setup_requires=setup_requirements,
     test_suite="tests",

@@ -32,33 +32,39 @@ class Collector:
         s = (
             Search(using=self.os_client, index=self.es_index)
             .filter("term", **{"metricName.keyword": "jobSummary"})
+            .params(scroll="5m", size=100)
             .query(query)
         )
-
         # Use scan to get all results
-        for hit in s.scan():
-            run_data = {}
-            jobSummary = hit.to_dict()
-            uuid = jobSummary.get("uuid")
-            if not uuid:
-                logger.warning("Missing UUID in jobSummary, skipping entry.")
-                continue
-            logging.debug(f"Processing UUID: {uuid}")
-            if uuid not in run_data:
-                logger.debug("UUID not present in run data, adding it")                
-                run_data[uuid] = {"metadata": {}, "metrics": {}}            
-            for field in self.config["metadata"]:
-                if field in jobSummary:
-                    run_data[uuid]["metadata"][field] = jobSummary[field]
-                elif "jobConfig" in jobSummary and field in jobSummary["jobConfig"]:
-                    run_data[uuid]["metadata"].setdefault("jobConfig", {})[field] = jobSummary["jobConfig"][field]
-            metrics, count_verified = self._metrics_by_uuid(uuid)
-            if count_verified:
-                run_data[uuid]["metrics"] = metrics
-            else:
-                logger.debug(f"No verified metrics for UUID {uuid}, skipping.")
-                continue
-            data.append(run_data)
+        try:
+            for hit in s.scan():
+                run_data = {}
+                jobSummary = hit.to_dict()
+                uuid = jobSummary.get("uuid")
+                if not uuid:
+                    logger.warning("Missing UUID in jobSummary, skipping entry.")
+                    continue
+                logging.debug(f"Processing UUID: {uuid}")
+                if uuid not in run_data:
+                    logger.debug("UUID not present in run data, adding it")
+                    run_data[uuid] = {"metadata": {}, "metrics": {}}
+
+                for field in self.config["metadata"]:
+                    if field in jobSummary:
+                        run_data[uuid]["metadata"][field] = jobSummary[field]
+                    elif "jobConfig" in jobSummary and field in jobSummary["jobConfig"]:
+                        run_data[uuid]["metadata"].setdefault("jobConfig", {})[field] = jobSummary["jobConfig"][field]
+
+                metrics, count_verified = self._metrics_by_uuid(uuid)
+                if count_verified:
+                    run_data[uuid]["metrics"] = metrics
+                else:
+                    logger.debug(f"No verified metrics for UUID {uuid}, skipping.")
+                    continue
+                data.append(run_data)
+
+        except Exception as e:
+            logger.warning(f"Scroll context lost: {e}, continuing with partial results.")
         
         elapsed = time.time() - start_time
         logger.info(f"Data collection completed in {elapsed:.2f} seconds.")
