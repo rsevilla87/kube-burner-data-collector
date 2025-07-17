@@ -12,6 +12,7 @@ class Collector:
         self.config = config
         self.es_index = es_index
         self.os_client = OpenSearch(es_server, verify_certs=False, http_compress=True, timeout=30)
+        logging.getLogger("opensearch").setLevel(logging.WARNING)
 
     def collect(self, from_date: datetime, to: datetime):
         """Collects data from the elastic search"""
@@ -29,6 +30,13 @@ class Collector:
                 ],
         )
         logger.debug(f"Constructed Elasticsearch query: {query.to_dict()}")
+        # Get number of query hits
+        hit_count = self.os_client.count(
+            index=self.es_index,
+            body={
+                "query": query.to_dict(),
+            },
+        )
         s = (
             Search(using=self.os_client, index=self.es_index)
             .filter("term", **{"metricName.keyword": "jobSummary"})
@@ -37,14 +45,16 @@ class Collector:
         )
         # Use scan to get all results
         try:
+            hits_processed = 0
             for hit in s.scan():
+                hits_processed += 1
                 run_data = {}
                 jobSummary = hit.to_dict()
                 uuid = jobSummary.get("uuid")
                 if not uuid:
                     logger.warning("Missing UUID in jobSummary, skipping entry.")
                     continue
-                logging.debug(f"Processing UUID: {uuid}")
+                logging.info(f"Processing  {hits_processed}/{hit_count['count']}: {uuid}")
                 if uuid not in run_data:
                     logger.debug("UUID not present in run data, adding it")
                     run_data[uuid] = {"metadata": {}, "metrics": {}}
@@ -77,8 +87,8 @@ class Collector:
         metric_filter = [Q("term", **{"metricName.keyword": metric}) for metric in input_list]
         should_query = Q("bool", should=metric_filter)
         query = Q("bool", must_not=[Q("term", **{"jobConfig.name.keyword": "garbage-collection"})], should=should_query)
-        logger.debug(f"Constructed Elasticsearch query: {query.to_dict()}")
         s = Search(using=self.os_client, index=self.es_index).filter("term", **{"uuid.keyword": uuid}).query(query)
+        logger.info(f"Running query: {s.to_dict()}")
         for hit in s.scan():
             datapoint = hit.to_dict()
             if datapoint["metricName"] not in metrics:
