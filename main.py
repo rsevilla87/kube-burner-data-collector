@@ -5,6 +5,7 @@ import sys
 import logging
 import argparse
 import urllib3
+import csv
 from data_collector import __version__, collector
 from data_collector.config import Config
 from data_collector.normalize import normalize
@@ -12,7 +13,7 @@ from data_collector.s3 import upload_csv_to_s3
 from data_collector.utils import split_list_into_chunks, parse_timerange
 from data_collector.constants import S3_BUCKET, CHUNK_SIZE, VALID_LOG_LEVELS
 from data_collector.logging import configure_logging
-from datetime import datetime
+import datetime
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -44,7 +45,7 @@ def main():
         action="store",
         help="End date, in epoch seconds",
         type=int,
-        default=datetime.utcnow().timestamp(),
+        default=datetime.datetime.now(datetime.UTC).timestamp(),
     )
     args = parser.parse_args()
     configure_logging(args.log_level)
